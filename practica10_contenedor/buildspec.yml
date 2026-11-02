@@ -1,0 +1,31 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - set -e
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - IMAGE_URI=${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${IMAGE_REPO_NAME}
+      - echo "Repositorio privado: ${IMAGE_URI}"
+      - aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${IMAGE_URI}
+  build:
+    commands:
+      - echo "Construyendo ${IMAGE_URI}:${IMAGE_TAG}"
+      - docker build --label org.opencontainers.image.title=Sistema-de-Reportes --label org.opencontainers.image.version=${IMAGE_TAG} -t ${IMAGE_URI}:${IMAGE_TAG} .
+      - docker image inspect ${IMAGE_URI}:${IMAGE_TAG} --format 'IMAGE_SIZE_BYTES={{.Size}}'
+      - docker images ${IMAGE_URI}:${IMAGE_TAG}
+      - docker run -d --name p10-local -p 8080:8080 -e DEMO_MODE=true -e TABLE_NAME=ReportesColoniasP07 -e AWS_REGION=${AWS_DEFAULT_REGION} ${IMAGE_URI}:${IMAGE_TAG}
+      - sleep 5
+      - curl --fail --silent http://127.0.0.1:8080/health
+      - curl --fail --silent 'http://127.0.0.1:8080/reportes?limit=1'
+      - docker ps --filter name=p10-local
+      - docker stop p10-local
+      - docker rm p10-local
+  post_build:
+    commands:
+      - docker push ${IMAGE_URI}:${IMAGE_TAG}
+      - printf '{"imageUri":"%s"}\n' ${IMAGE_URI}:${IMAGE_TAG} > imageDetail.json
+artifacts:
+  files:
+    - imageDetail.json

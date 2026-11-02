@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.*
+*.pem
+*.key
+credentials*
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+evidencia/
+qa_*/
+*.docx
+*.pdf
+README*~
